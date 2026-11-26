@@ -22,6 +22,55 @@ Price effective_limit(const Order& o) {
 
 }  // namespace
 
+OrderBook::Slot OrderBook::allocate(OrderId id, Qty qty) {
+    Slot slot;
+    if (free_head_ != kNil) {
+        slot = free_head_;
+        free_head_ = nodes_[slot].next;
+    } else {
+        slot = static_cast<Slot>(nodes_.size());
+        nodes_.emplace_back();
+    }
+    nodes_[slot] = Node{id, qty, kNil, kNil, nullptr};
+    return slot;
+}
+
+void OrderBook::release(Slot slot) {
+    nodes_[slot].next = free_head_;
+    free_head_ = slot;
+}
+
+void OrderBook::push_back(std::vector<Node>& nodes, Level& level, Slot slot) {
+    Node& n = nodes[slot];
+    n.level = &level;
+    n.prev = level.tail;
+    n.next = kNil;
+    if (level.tail != kNil) {
+        nodes[level.tail].next = slot;
+    } else {
+        level.head = slot;
+    }
+    level.tail = slot;
+    level.total += n.qty;
+    ++level.count;
+}
+
+void OrderBook::unlink(std::vector<Node>& nodes, Level& level, Slot slot) {
+    Node& n = nodes[slot];
+    if (n.prev != kNil) {
+        nodes[n.prev].next = n.next;
+    } else {
+        level.head = n.next;
+    }
+    if (n.next != kNil) {
+        nodes[n.next].prev = n.prev;
+    } else {
+        level.tail = n.prev;
+    }
+    level.total -= n.qty;
+    --level.count;
+}
+
 template <class Map>
 Qty OrderBook::match(Map& book, const Order& taker, Price limit, std::vector<Trade>& trades) {
     Qty remaining = taker.qty;
@@ -29,19 +78,27 @@ Qty OrderBook::match(Map& book, const Order& taker, Price limit, std::vector<Tra
         auto level_it = book.begin();
         if (!crosses(taker.side, level_it->first, limit)) break;
         Level& level = level_it->second;
-        while (remaining > 0 && !level.queue.empty()) {
-            Entry& maker = level.queue.front();
+        while (remaining > 0 && level.head != kNil) {
+            const Slot slot = level.head;
+            Node& maker = nodes_[slot];
             const Qty q = std::min(remaining, maker.qty);
-            trades.push_back(Trade{taker.id, maker.id, taker.side, level_it->first, q});
+            trades.push_back(Trade{taker.id, maker.id, taker.side, level.price, q});
             maker.qty -= q;
             level.total -= q;
             remaining -= q;
             if (maker.qty == 0) {
                 index_.erase(maker.id);
-                level.queue.pop_front();
+                level.head = maker.next;
+                if (maker.next != kNil) {
+                    nodes_[maker.next].prev = kNil;
+                } else {
+                    level.tail = kNil;
+                }
+                --level.count;
+                release(slot);
             }
         }
-        if (level.queue.empty()) book.erase(level_it);
+        if (level.head == kNil) book.erase(level_it);
     }
     return taker.qty - remaining;
 }
@@ -63,33 +120,25 @@ std::vector<DepthLevel> OrderBook::snapshot(const Map& book, std::size_t levels)
     std::vector<DepthLevel> out;
     for (const auto& [price, level] : book) {
         if (out.size() == levels) break;
-        out.push_back(
-            DepthLevel{price, level.total, static_cast<std::uint32_t>(level.queue.size())});
+        out.push_back(DepthLevel{price, level.total, level.count});
     }
     return out;
 }
 
-template <class Map>
-void OrderBook::erase_from(Map& book, const Locator& loc) {
-    auto level_it = book.find(loc.price);
-    Level& level = level_it->second;
-    level.total -= loc.it->qty;
-    level.queue.erase(loc.it);
-    if (level.queue.empty()) book.erase(level_it);
-}
-
 void OrderBook::rest(const Order& order, Qty qty) {
+    const Slot slot = allocate(order.id, qty);
     auto place = [&](auto& book) {
         Level& level = book[order.price];
-        level.queue.push_back(Entry{order.id, qty});
-        level.total += qty;
-        index_[order.id] = Locator{order.side, order.price, std::prev(level.queue.end())};
+        level.price = order.price;
+        level.side = order.side;
+        push_back(nodes_, level, slot);
     };
     if (order.side == Side::Buy) {
         place(bids_);
     } else {
         place(asks_);
     }
+    index_[order.id] = slot;
 }
 
 SubmitResult OrderBook::submit(const Order& order, std::vector<Trade>& trades) {
@@ -121,12 +170,18 @@ SubmitResult OrderBook::submit(const Order& order, std::vector<Trade>& trades) {
 bool OrderBook::cancel(OrderId id) {
     auto it = index_.find(id);
     if (it == index_.end()) return false;
-    const Locator loc = it->second;
+    const Slot slot = it->second;
     index_.erase(it);
-    if (loc.side == Side::Buy) {
-        erase_from(bids_, loc);
-    } else {
-        erase_from(asks_, loc);
+    Level& level = *nodes_[slot].level;
+    unlink(nodes_, level, slot);
+    release(slot);
+    if (level.head == kNil) {
+        // Only now do we pay for a tree lookup, and only when a price level empties.
+        if (level.side == Side::Buy) {
+            bids_.erase(level.price);
+        } else {
+            asks_.erase(level.price);
+        }
     }
     return true;
 }
@@ -139,20 +194,15 @@ SubmitResult OrderBook::modify(OrderId id, Price new_price, Qty new_qty,
     if (new_qty <= 0) return reject(RejectReason::BadQuantity);
     if (new_price <= 0) return reject(RejectReason::BadPrice);
 
-    const Locator loc = it->second;
-    if (new_price == loc.price && new_qty <= loc.it->qty) {
+    Node& node = nodes_[it->second];
+    Level& level = *node.level;
+    if (new_price == level.price && new_qty <= node.qty) {
         // Smaller (or same) size at the same price: keep the queue position.
-        const Qty delta = loc.it->qty - new_qty;
-        loc.it->qty = new_qty;
-        auto shrink = [&](auto& book) { book.find(loc.price)->second.total -= delta; };
-        if (loc.side == Side::Buy) {
-            shrink(bids_);
-        } else {
-            shrink(asks_);
-        }
+        level.total -= node.qty - new_qty;
+        node.qty = new_qty;
         return SubmitResult{Status::Resting, RejectReason::None, 0, new_qty};
     }
-    const Side side = loc.side;
+    const Side side = level.side;
     cancel(id);
     return submit(limit_order(id, side, new_price, new_qty), trades);
 }
@@ -174,7 +224,8 @@ std::vector<DepthLevel> OrderBook::depth(Side side, std::size_t levels) const {
 std::optional<RestingOrder> OrderBook::find(OrderId id) const {
     auto it = index_.find(id);
     if (it == index_.end()) return std::nullopt;
-    return RestingOrder{id, it->second.side, it->second.price, it->second.it->qty};
+    const Node& n = nodes_[it->second];
+    return RestingOrder{id, n.level->side, n.level->price, n.qty};
 }
 
 std::string OrderBook::validate() const {
@@ -182,30 +233,48 @@ std::string OrderBook::validate() const {
     std::size_t seen = 0;
     auto check = [&](const auto& book, Side side) {
         for (const auto& [price, level] : book) {
-            if (level.queue.empty()) {
+            if (level.head == kNil) {
                 err << "empty level at " << price << "; ";
                 continue;
             }
+            if (level.price != price || level.side != side)
+                err << "level fields wrong at " << price << "; ";
             Qty sum = 0;
-            for (auto it = level.queue.begin(); it != level.queue.end(); ++it) {
-                ++seen;
-                sum += it->qty;
-                if (it->qty <= 0) err << "non-positive qty on order " << it->id << "; ";
-                auto idx = index_.find(it->id);
-                if (idx == index_.end()) {
-                    err << "order " << it->id << " missing from index; ";
-                } else if (idx->second.side != side || idx->second.price != price ||
-                           idx->second.it != it) {
-                    err << "index entry for order " << it->id << " is wrong; ";
+            std::uint32_t count = 0;
+            Slot prev = kNil;
+            for (Slot s = level.head; s != kNil; s = nodes_[s].next) {
+                const Node& n = nodes_[s];
+                ++count;
+                sum += n.qty;
+                if (n.qty <= 0) err << "non-positive qty on order " << n.id << "; ";
+                if (n.prev != prev) err << "broken prev link at order " << n.id << "; ";
+                if (n.level != &level) err << "wrong level pointer on order " << n.id << "; ";
+                auto idx = index_.find(n.id);
+                if (idx == index_.end() || idx->second != s) {
+                    err << "order " << n.id << " missing or wrong in index; ";
+                }
+                prev = s;
+                if (count > nodes_.size()) {
+                    err << "cycle at level " << price << "; ";
+                    break;
                 }
             }
+            if (prev != level.tail) err << "tail wrong at " << price << "; ";
             if (sum != level.total) err << "level total mismatch at " << price << "; ";
+            if (count != level.count) err << "level count mismatch at " << price << "; ";
+            seen += count;
         }
     };
     check(bids_, Side::Buy);
     check(asks_, Side::Sell);
-    if (seen != index_.size())
+    if (seen != index_.size()) {
         err << "index has " << index_.size() << " ids, book has " << seen << "; ";
+    }
+    std::size_t free_slots = 0;
+    for (Slot s = free_head_; s != kNil && free_slots <= nodes_.size(); s = nodes_[s].next) {
+        ++free_slots;
+    }
+    if (free_slots + seen != nodes_.size()) err << "pool slots leaked or double-freed; ";
     if (!bids_.empty() && !asks_.empty() && bids_.begin()->first >= asks_.begin()->first) {
         err << "book is crossed; ";
     }

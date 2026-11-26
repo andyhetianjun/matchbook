@@ -1,8 +1,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
-#include <list>
+#include <limits>
 #include <map>
 #include <optional>
 #include <string>
@@ -19,7 +20,10 @@ class OrderBook {
 public:
     // `reserve_orders` is a hint for how many orders will rest at once, so the
     // book can allocate up front instead of growing as it goes.
-    explicit OrderBook(std::size_t reserve_orders = 0) { index_.reserve(reserve_orders); }
+    explicit OrderBook(std::size_t reserve_orders = 0) {
+        nodes_.reserve(reserve_orders);
+        index_.reserve(reserve_orders);
+    }
 
     // Match against the book, then (for GTC limit orders) rest what is left.
     // Trades are appended to `trades` in the order they happen.
@@ -47,22 +51,35 @@ public:
     std::string validate() const;
 
 private:
-    struct Entry {
-        OrderId id;
-        Qty qty;
+    // Resting orders live in one vector ("the pool") and refer to each other by
+    // index, so there is no allocation per order and neighbours are close in memory.
+    using Slot = std::uint32_t;
+    static constexpr Slot kNil = std::numeric_limits<Slot>::max();
+
+    struct Level;
+    struct Node {
+        OrderId id = 0;
+        Qty qty = 0;
+        Slot prev = kNil;  // towards the front of the queue
+        Slot next = kNil;  // towards the back; also the free-list link
+        Level* level = nullptr;
     };
-    using Queue = std::list<Entry>;
     struct Level {
-        Queue queue;
+        Price price = 0;
+        Side side = Side::Buy;
+        Slot head = kNil;  // oldest order, matched first
+        Slot tail = kNil;
         Qty total = 0;
+        std::uint32_t count = 0;
     };
+    // std::map nodes never move, so a Node can hold a plain Level pointer.
     using BidMap = std::map<Price, Level, std::greater<Price>>;
     using AskMap = std::map<Price, Level>;
-    struct Locator {
-        Side side;
-        Price price;
-        Queue::iterator it;
-    };
+
+    Slot allocate(OrderId id, Qty qty);
+    void release(Slot slot);
+    static void push_back(std::vector<Node>& nodes, Level& level, Slot slot);
+    static void unlink(std::vector<Node>& nodes, Level& level, Slot slot);
 
     template <class Map>
     Qty match(Map& book, const Order& taker, Price limit, std::vector<Trade>& trades);
@@ -70,13 +87,13 @@ private:
     static bool can_fill(const Map& book, Side taker, Price limit, Qty want);
     template <class Map>
     static std::vector<DepthLevel> snapshot(const Map& book, std::size_t levels);
-    template <class Map>
-    void erase_from(Map& book, const Locator& loc);
     void rest(const Order& order, Qty qty);
 
     BidMap bids_;
     AskMap asks_;
-    std::unordered_map<OrderId, Locator> index_;
+    std::vector<Node> nodes_;
+    Slot free_head_ = kNil;
+    std::unordered_map<OrderId, Slot> index_;
 };
 
 }  // namespace matchbook
