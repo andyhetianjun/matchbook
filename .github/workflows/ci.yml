@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: build and test (${{ matrix.cxx }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx: [g++, clang++]
+    env:
+      CXX: ${{ matrix.cxx }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake --preset release
+      - name: Build
+        run: cmake --build --preset release -j
+      - name: Test
+        run: ctest --preset release
+      - name: CLI on the example file
+        run: ./build/release/matchbook --book 3 data/example.csv
+      - name: Benchmark smoke run
+        run: ./build/release/matchbook_bench --ops 200000 --runs 1
+
+  sanitizers:
+    name: tests with ASan and UBSan
+    runs-on: ubuntu-latest
+    env:
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake --preset sanitize
+      - name: Build
+        run: cmake --build --preset sanitize -j
+      - name: Test
+        run: ctest --preset sanitize
+
+  format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang-format
+        run: pip install clang-format==23.1.5
+      - name: Check formatting
+        run: clang-format --dry-run -Werror $(git ls-files '*.cpp' '*.hpp')

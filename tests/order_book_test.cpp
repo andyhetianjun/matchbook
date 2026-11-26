@@ -395,6 +395,22 @@ TEST_F(BookTest, BookStaysUncrossedThroughASequence) {
     for (OrderId id = 1; id <= 20; ++id) {
         buy(id, 90 + static_cast<Price>(id % 7), 3);
         sell(100 + id, 94 + static_cast<Price>(id % 5), 2);
-        if (book.best_bid() && book.best_ask()) EXPECT_LT(*book.best_bid(), *book.best_ask());
+        if (book.best_bid() && book.best_ask()) {
+            EXPECT_LT(*book.best_bid(), *book.best_ask());
+        }
+    }
+}
+
+TEST_F(BookTest, PoolSlotsAreReusedAfterCancelsAndFills) {
+    // Churn: many rounds of add, partial fill, cancel. validate() checks that no
+    // pool slot is leaked or freed twice.
+    OrderId next = 1;
+    for (int round = 0; round < 200; ++round) {
+        const OrderId first = next;
+        for (int i = 0; i < 20; ++i) buy(next++, 100 - (i % 3), 5);
+        sell(next++, 99, 12);
+        for (OrderId id = first; id < first + 20; id += 2) cancel(id);
+        submit(market_order(next++, Side::Sell, 1000));
+        EXPECT_EQ(book.order_count(), 0u);
     }
 }
