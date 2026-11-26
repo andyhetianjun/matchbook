@@ -21,7 +21,7 @@ std::uint64_t TrafficGen::run(std::size_t n) {
         Price& mid = mid_[sym];
         if (pick(20) == 0) mid = std::max<Price>(kMinMid, mid + (pick(2) ? 1 : -1));
 
-        const auto account = static_cast<Account>(pick(cfg_.accounts));
+        const auto account = cfg_.first_account + static_cast<Account>(pick(cfg_.accounts));
         const Side side = pick(2) ? Side::Buy : Side::Sell;
         const Price away = static_cast<Price>(pick(5));  // 0 to 4 ticks
         const Price passive = side == Side::Buy ? mid - 1 - away : mid + 1 + away;

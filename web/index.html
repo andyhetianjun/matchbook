@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>matchbook demo</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --ink: #1c1d1f; --muted: #6b6f76; --line: #e3e1da;
+    --buy: #1a7f4b; --buy-bg: #dff1e6; --sell: #b3372d; --sell-bg: #f6e0dd; --accent: #234a7a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141516; --card: #1d1f21; --ink: #e8e8e6; --muted: #9a9ea5; --line: #2e3033;
+      --buy: #54c088; --buy-bg: #1d3a2b; --sell: #ee7d72; --sell-bg: #442421; --accent: #8fb4e8;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 16px; max-width: 70ch; }
+  .lede a { color: var(--accent); }
+  .num, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .tabs button { padding: 6px 14px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    border-radius: 999px; cursor: pointer; font: inherit; }
+  .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .card h3 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600; }
+  .ladder .row { position: relative; display: grid; grid-template-columns: 1fr 1fr 40px; padding: 2px 6px; cursor: pointer; font-size: 14px; }
+  .ladder .row:hover { outline: 1px solid var(--line); }
+  .ladder .bar { position: absolute; top: 0; bottom: 0; right: 0; opacity: .9; z-index: 0; }
+  .ladder .row span { position: relative; z-index: 1; }
+  .ladder .row span:nth-child(2), .ladder .row span:nth-child(3) { text-align: right; }
+  .ladder .ask .bar { background: var(--sell-bg); } .ladder .ask span:first-child { color: var(--sell); }
+  .ladder .bid .bar { background: var(--buy-bg); } .ladder .bid span:first-child { color: var(--buy); }
+  .ladder .head { color: var(--muted); font-size: 12px; cursor: default; }
+  .ladder .head:hover { outline: none; }
+  .ladder .mid { padding: 6px; color: var(--muted); font-size: 13px; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); margin: 4px 0; }
+  .side { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .side button { padding: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 8px; cursor: pointer; font: inherit; font-weight: 600; }
+  .side button[data-side="buy"][aria-pressed="true"] { background: var(--buy); color: #fff; border-color: var(--buy); }
+  .side button[data-side="sell"][aria-pressed="true"] { background: var(--sell); color: #fff; border-color: var(--sell); }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  input, select { width: 100%; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; margin-top: 3px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button.go { width: 100%; padding: 9px; border: 0; border-radius: 8px; background: var(--accent); color: var(--bg); font: inherit; font-weight: 600; cursor: pointer; }
+  button.small { padding: 2px 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 6px; cursor: pointer; font: inherit; font-size: 12px; }
+  .msg { min-height: 1.4em; margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+  .mine div { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; font-size: 13px; }
+  .empty { color: var(--muted); font-size: 13px; }
+  .kv { display: flex; justify-content: space-between; font-size: 13px; padding: 1px 0; }
+  .tape div { display: grid; grid-template-columns: 52px 1fr 1fr; font-size: 13px; padding: 1px 0; }
+  .tape .buy .p { color: var(--buy); } .tape .sell .p { color: var(--sell); }
+  .tape .seq { color: var(--muted); }
+  .feed { font-size: 11px; color: var(--muted); max-height: 200px; overflow: hidden; word-break: break-all; }
+  .feed div { padding: 1px 0; border-bottom: 1px solid var(--line); }
+  .sim { margin-top: 14px; display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center; }
+  @media (max-width: 700px) { .sim { grid-template-columns: 1fr; } }
+  .rate { font-size: 34px; font-weight: 600; line-height: 1.1; }
+  .rate small { display: block; font-size: 12px; color: var(--muted); font-weight: 400; max-width: 34ch; }
+  .controls { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .controls label { margin: 0; width: 110px; }
+  .controls button { padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); font: inherit; cursor: pointer; }
+  .controls button.on { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+  .ok { color: var(--buy); } .bad { color: var(--sell); }
+  .stats { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  footer { margin-top: 18px; color: var(--muted); font-size: 12px; max-width: 80ch; }
+  #loading { padding: 40px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>matchbook</h1>
+  <p class="lede">An order matching engine written in C++ and compiled to WebAssembly, running in this page. Place buy and
+    sell orders on a few example products, watch the book and the trades change, or let it run a seeded random stream of
+    orders. Nothing here talks to a server. <a href="https://github.com/andyhetianjun/matchbook">Source on GitHub</a>.</p>
+
+  <div id="loading">Loading the engine...</div>
+  <div id="app" hidden>
+    <div class="tabs" id="tabs"></div>
+    <div class="grid">
+      <section class="card ladder">
+        <h2>Order book (top 10 levels)</h2>
+        <div class="row head"><span>price (ticks)</span><span>quantity</span><span>orders</span></div>
+        <div id="asks"></div>
+        <div class="mid mono" id="mid"></div>
+        <div id="bids"></div>
+      </section>
+
+      <section class="card">
+        <h2>Your order</h2>
+        <div class="side" id="side">
+          <button data-side="buy" aria-pressed="true">Buy</button>
+          <button data-side="sell" aria-pressed="false">Sell</button>
+        </div>
+        <div class="two">
+          <label>Type
+            <select id="type"><option value="LIMIT">Limit</option><option value="MARKET">Market</option></select>
+          </label>
+          <label>Time in force
+            <select id="tif"><option value="GTC">GTC (rest on the book)</option><option value="IOC">IOC (fill now or drop)</option><option value="FOK">FOK (all or nothing)</option></select>
+          </label>
+        </div>
+        <div class="two">
+          <label>Price (ticks)<input id="price" type="number" min="1" step="1" value="100"></label>
+          <label>Quantity<input id="qty" type="number" min="1" step="1" value="10"></label>
+        </div>
+        <button class="go" id="submit">Send order</button>
+        <p class="msg" id="msg"></p>
+        <h3>Your resting orders</h3>
+        <div class="mine" id="mine"></div>
+        <h3>Your account (this product)</h3>
+        <div class="kv"><span>Position</span><span class="num" id="pos">0</span></div>
+        <div class="kv"><span>Cash, all products</span><span class="num" id="cash">0</span></div>
+      </section>
+
+      <section class="card">
+        <h2>Trades</h2>
+        <div class="tape mono" id="tape"></div>
+        <h3>Market data feed (newest first)</h3>
+        <div class="feed mono" id="feed"></div>
+      </section>
+    </div>
+
+    <section class="card sim">
+      <div class="rate">
+        <span class="num" id="rate">0</span> ops/sec
+        <small>In-browser speed of this WebAssembly build, including the feed and ledger. Not the native benchmark in the README.</small>
+      </div>
+      <div>
+        <div class="controls">
+          <button id="simBtn">Simulate traffic</button>
+          <label>Seed<input id="seed" type="number" min="0" step="1" value="42"></label>
+          <button id="resetBtn">Reset with seed</button>
+        </div>
+        <div class="stats mono" id="stats"></div>
+      </div>
+    </section>
+    <footer>
+      The random traffic is the same seeded generator the tests use: the same seed always gives the same market.
+      Eight bot accounts send it; you are account 0. Every trade goes into a ledger that records who owes what and checks
+      that cash and quantity add up to zero.
+    </footer>
+  </div>
+</div>
+
+<script src="matchbook.js"></script>
+<script>
+(async function () {
+  const $ = (id) => document.getElementById(id);
+  const M = await createMatchbook();
+  const api = {
+    init: M.cwrap('mb_init', null, ['number']),
+    command: M.cwrap('mb_command', 'string', ['string']),
+    traffic: M.cwrap('mb_traffic', 'number', ['number']),
+    state: M.cwrap('mb_state', 'string', ['number']),
+  };
+  const SYMBOLS = ['WHEAT', 'COPPER', 'SALMON'];
+  let current = 0, side = 'buy', refN = 0, totalOps = 0, totalTrades = 0;
+  let running = false, batch = 1000;
+  const window_ = []; // {wall, ops, ms}: recent batches for the ops/sec figure
+
+  api.init(Number($('seed').value));
+  $('loading').hidden = true;
+  $('app').hidden = false;
+
+  SYMBOLS.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.textContent = s;
+    b.setAttribute('aria-pressed', i === 0);
+    b.onclick = () => { current = i; [...$('tabs').children].forEach((c, j) => c.setAttribute('aria-pressed', j === i)); priceSet = false; draw(); };
+    $('tabs').appendChild(b);
+  });
+
+  $('side').onclick = (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    side = b.dataset.side;
+    [...$('side').children].forEach((c) => c.setAttribute('aria-pressed', c.dataset.side === side));
+  };
+  $('type').onchange = () => { $('price').disabled = $('type').value === 'MARKET'; };
+
+  const fmt = (n) => Number(n).toLocaleString('en-US');
+  let priceSet = false;
+
+  function row(cls, l, maxQty) {
+    const d = document.createElement('div');
+    d.className = 'row ' + cls;
+    d.innerHTML = '<i class="bar" style="width:' + Math.round(100 * l[1] / maxQty) + '%"></i><span class="num">' + l[0] +
+      '</span><span class="num">' + fmt(l[1]) + '</span><span class="num">' + l[2] + '</span>';
+    d.onclick = () => { $('price').value = l[0]; };
+    return d;
+  }
+
+  function draw() {
+    const s = JSON.parse(api.state(current));
+    const maxQty = Math.max(1, ...s.bids.map((l) => l[1]), ...s.asks.map((l) => l[1]));
+    $('asks').replaceChildren(...s.asks.slice().reverse().map((l) => row('ask', l, maxQty)));
+    $('bids').replaceChildren(...s.bids.map((l) => row('bid', l, maxQty)));
+    const bb = s.bids[0], ba = s.asks[0];
+    $('mid').textContent = bb && ba ? 'spread ' + (ba[0] - bb[0]) + ' tick' + (ba[0] - bb[0] === 1 ? '' : 's') + '   |   ' + fmt(s.orders) + ' resting orders'
+      : fmt(s.orders) + ' resting orders';
+    if (!priceSet && (bb || ba)) { $('price').value = (bb || ba)[0]; priceSet = true; }
+
+    $('tape').replaceChildren(...s.trades.map((t) => {
+      const d = document.createElement('div');
+      d.className = t[3];
+      d.innerHTML = '<span class="seq">#' + t[0] + '</span><span class="p">' + t[1] + '</span><span>' + t[2] + ' ' + (t[3] === 'buy' ? 'bought' : 'sold') + '</span>';
+      return d;
+    }));
+    if (!s.trades.length) $('tape').innerHTML = '<span class="empty">no trades yet</span>';
+    $('feed').replaceChildren(...s.feed.map((m) => {
+      const d = document.createElement('div');
+      d.textContent = JSON.stringify(m).replace(/"symbol":"[A-Z]+",/, '');
+      return d;
+    }));
+
+    const mine = $('mine');
+    mine.replaceChildren(...s.mine.map((o) => {
+      const d = document.createElement('div');
+      d.innerHTML = '<span class="mono ' + (o[1] === 'buy' ? 'ok' : 'bad') + '">' + o[1] + ' ' + o[3] + ' @ ' + o[2] + '</span>';
+      const b = document.createElement('button');
+      b.className = 'small'; b.textContent = 'cancel';
+      b.onclick = () => { api.command('CANCEL c' + (++refN) + ' 0 ' + o[0]); draw(); };
+      d.appendChild(b);
+      return d;
+    }));
+    if (!s.mine.length) mine.innerHTML = '<span class="empty">none</span>';
+
+    $('pos').textContent = s.ledger.your_position;
+    $('cash').textContent = fmt(s.ledger.your_cash);
+    const L = s.ledger;
+    $('stats').innerHTML = fmt(totalOps) + ' random ops run, ' + fmt(L.trades) + ' trades in the ledger. Ledger check: ' +
+      (L.balanced ? '<span class="ok">cash and quantity balance</span>' : '<span class="bad">DOES NOT BALANCE</span>') +
+      '. Feed sequence for ' + SYMBOLS[current] + ': ' + fmt(s.seq) + '.';
+  }
+
+  $('submit').onclick = () => {
+    const type = $('type').value;
+    const price = type === 'MARKET' ? 0 : Math.floor(Number($('price').value));
+    const qty = Math.floor(Number($('qty').value));
+    if (!(qty > 0) || (type === 'LIMIT' && !(price > 0))) { $('msg').textContent = 'Enter a whole price and quantity above zero.'; return; }
+    const lines = api.command('NEW r' + (++refN) + ' 0 ' + SYMBOLS[current] + ' ' + side.toUpperCase() + ' ' + type + ' ' + $('tif').value + ' ' + price + ' ' + qty)
+      .split('\n').filter(Boolean).map(JSON.parse);
+    const ack = lines.find((l) => l.type === 'ack' || l.type === 'error');
+    const trades = lines.filter((l) => l.type === 'trade');
+    if (!ack || ack.type === 'error') $('msg').textContent = ack ? ack.reason : 'no reply';
+    else if (ack.status === 'rejected') $('msg').textContent = 'Rejected: ' + ack.reason + '.';
+    else $('msg').textContent = 'Order ' + ack.id + ': ' + ack.status + '. Filled ' + ack.filled + ' in ' + trades.length + ' trade' + (trades.length === 1 ? '' : 's') +
+      (ack.remaining ? (ack.status === 'resting' ? ', ' + ack.remaining + ' resting.' : ', ' + ack.remaining + ' dropped.') : '.');
+    draw();
+  };
+
+  // Simulate traffic: run seeded random operations in batches, timing only the engine call.
+  function frame() {
+    if (!running) return;
+    const t0 = performance.now();
+    const trades = api.traffic(batch);
+    const ms = performance.now() - t0;
+    totalOps += batch; totalTrades += trades;
+    const now = performance.now();
+    window_.push({ wall: now, ops: batch, ms });
+    while (window_.length > 1 && now - window_[0].wall > 1500) window_.shift();
+    // aim for about 10 ms of engine time per frame so the page stays responsive
+    batch = Math.max(100, Math.min(200000, Math.round(batch * (10 / Math.max(ms, 0.5)))));
+    requestAnimationFrame(frame);
+  }
+  $('simBtn').onclick = () => {
+    running = !running;
+    $('simBtn').classList.toggle('on', running);
+    $('simBtn').textContent = running ? 'Stop traffic' : 'Simulate traffic';
+    if (running) { window_.length = 0; requestAnimationFrame(frame); }
+  };
+  $('resetBtn').onclick = () => {
+    api.init(Math.max(0, Math.floor(Number($('seed').value)) || 0));
+    totalOps = 0; totalTrades = 0; window_.length = 0; priceSet = false; $('msg').textContent = ''; $('rate').textContent = '0'; draw();
+  };
+
+  setInterval(() => {
+    if (running || document.hasFocus()) draw();
+    const ops = window_.reduce((a, w) => a + w.ops, 0), ms = window_.reduce((a, w) => a + w.ms, 0);
+    if (running && ms > 0) $('rate').textContent = fmt(Math.round(ops / (ms / 1000)));
+  }, 150);
+  draw();
+  window.__matchbook = { api };
+})();
+</script>
+</body>
+</html>

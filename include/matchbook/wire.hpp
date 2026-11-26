@@ -30,10 +30,15 @@ public:
     Protocol(Exchange& ex, Sink sink);
     void handle(std::string_view line);
 
+    // Turn the feed output off and on. While it is off, nothing is encoded, so
+    // running a lot of traffic through the exchange does not pay for JSON.
+    void set_feed_output(bool on) { feed_output_ = on; }
+
 private:
     void reply_error(std::string_view ref, std::string_view reason);
     Exchange& ex_;
     Sink sink_;
+    bool feed_output_ = true;
 };
 
 }  // namespace matchbook

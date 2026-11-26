@@ -122,7 +122,9 @@ std::string to_json(const Exchange& ex, const BookSnapshot& s) {
 }
 
 Protocol::Protocol(Exchange& ex, Sink sink) : ex_(ex), sink_(std::move(sink)) {
-    ex_.subscribe([this](const FeedMessage& m) { sink_(to_json(ex_, m)); });
+    ex_.subscribe([this](const FeedMessage& m) {
+        if (feed_output_) sink_(to_json(ex_, m));
+    });
 }
 
 void Protocol::reply_error(std::string_view ref, std::string_view reason) {

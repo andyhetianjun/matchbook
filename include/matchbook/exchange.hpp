@@ -60,6 +60,17 @@ public:
     const Ledger& ledger() const { return ledger_; }
     std::optional<Account> owner(OrderId id) const;
 
+    struct OpenOrder {
+        OrderId id;
+        SymbolId symbol;
+        Side side;
+        Price price;
+        Qty qty;
+    };
+    // Every order this account still has resting, oldest first. Walks all resting
+    // orders, so it is for dashboards and tests, not for the matching path.
+    std::vector<OpenOrder> open_orders(Account account) const;
+
 private:
     struct Symbol {
         std::string name;

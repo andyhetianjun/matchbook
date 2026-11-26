@@ -35,6 +35,8 @@ target_link_libraries(matchbook_market PRIVATE matchbook)
 if(MATCHBOOK_BUILD_BENCH)
   add_executable(matchbook_bench bench/replay_bench.cpp)
   target_link_libraries(matchbook_bench PRIVATE matchbook)
+  add_executable(matchbook_market_bench bench/market_bench.cpp)
+  target_link_libraries(matchbook_market_bench PRIVATE matchbook)
 endif()
 
 if(MATCHBOOK_BUILD_TESTS)

@@ -184,7 +184,7 @@ TEST(Traffic, SameSeedGivesTheSameMarket) {
         Exchange ex;
         ex.add_symbol("A");
         ex.add_symbol("B");
-        TrafficGen g(ex, {seed, 6, 100});
+        TrafficGen g(ex, {seed, 0, 6, 100});
         const auto trades = g.run(20000);
         return std::make_tuple(trades, ex.ledger().traded_cash(), ex.seq(0), ex.seq(1),
                                ex.book(0).order_count(), ex.book(1).order_count());
@@ -196,7 +196,7 @@ TEST(Traffic, SameSeedGivesTheSameMarket) {
 TEST(Traffic, LedgerBalancesAndBooksAreValid) {
     Exchange ex(1000);
     for (const char* s : {"A", "B", "C"}) ex.add_symbol(s);
-    TrafficGen g(ex, {42, 8, 100});
+    TrafficGen g(ex, {42, 0, 8, 100});
     std::uint64_t trades = 0;
     for (int i = 0; i < 20; ++i) {
         trades += g.run(10000);

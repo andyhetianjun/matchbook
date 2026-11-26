@@ -27,6 +27,17 @@ std::optional<Account> Exchange::owner(OrderId id) const {
     return it->second.account;
 }
 
+std::vector<Exchange::OpenOrder> Exchange::open_orders(Account account) const {
+    std::vector<OpenOrder> out;
+    for (const auto& [id, o] : owners_) {
+        if (o.account != account) continue;
+        const auto r = symbols_[o.symbol]->book.find(id);
+        if (r) out.push_back({id, o.symbol, r->side, r->price, r->qty});
+    }
+    std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.id < b.id; });
+    return out;
+}
+
 void Exchange::publish(Symbol& s, SymbolId id,
                        std::variant<LevelUpdate, TopOfBook, TradePrint> body) {
     FeedMessage m{++s.seq, id, std::move(body)};
