@@ -4,7 +4,10 @@
 
 **Try it in your browser: https://andyhetianjun.github.io/matchbook/** (the engine compiled to WebAssembly; no server)
 
-![The browser demo](docs/img/demo.png)
+![Placing orders, then simulating traffic in the browser demo](docs/img/demo.gif)
+
+To try the command line version locally, run `scripts/try.sh`. It builds the tool and runs the example orders below.
+(CMake 3.21+ and a C++20 compiler needed. No CMake? `CMAKE="uvx cmake" scripts/try.sh` fetches one with uv.)
 
 I built a matching engine, the part of an exchange that pairs buy orders with sell orders, because I'm
 taking CS 246 (C++ and object-oriented design) this term and wanted to see how far careful data structure
@@ -102,6 +105,20 @@ BOOK
 - There is no self-trade prevention, because orders have no owner field.
 
 ## How it works
+
+```mermaid
+flowchart LR
+    A[order or cancel] --> B[validate]
+    B --> C{FOK?}
+    C -- "can't fill all" --> X[reject, book untouched]
+    C -- ok --> D[match against best opposite price levels]
+    D --> E[trades]
+    D --> F[leftover quantity]
+    F -- "GTC limit" --> G[rest at the back of its price level]
+    E --> H[feed + ledger]
+```
+
+The same thing in more detail:
 
 ```
                  submit(order)
