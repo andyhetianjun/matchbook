@@ -2,12 +2,24 @@
 
 [![ci](https://github.com/andyhetianjun/matchbook/actions/workflows/ci.yml/badge.svg)](https://github.com/andyhetianjun/matchbook/actions/workflows/ci.yml)
 
-A limit order book and matching engine in C++20. I wanted to see how far a careful, simple design gets
-you: get the matching rules right first, check them against a slow reference, then measure and speed up
-one thing.
+I built a matching engine, the part of an exchange that pairs buy orders with sell orders, because I'm
+taking CS 246 (C++ and object-oriented design) this term and wanted to see how far careful data structure
+choices go on a problem where speed matters. It is written in C++20 and comes with tests, sanitizer builds
+and a benchmark.
 
-It supports limit and market orders, cancel and modify, price-time priority, partial fills, IOC and FOK,
-trade events, and best bid/ask and depth snapshots. Prices and quantities are integers (ticks), never floats.
+A few words first:
+
+- **Order book**: the list of orders waiting to trade. Buyers say the highest price they will pay, sellers
+  say the lowest they will accept. A trade happens when a buy and a sell overlap.
+- **Price-time priority**: the fairness rule for who trades first. Better prices go first, and among orders
+  at the same price, the one that arrived earlier goes first.
+- **IOC (immediate or cancel)**: trade whatever you can right now and throw away the rest.
+- **FOK (fill or kill)**: trade the whole amount right now, or do nothing at all.
+
+It supports limit and market orders (a market order takes whatever price is available), cancel and modify,
+partial fills, IOC and FOK, trade events, and best bid/ask and depth snapshots. Prices and quantities are
+integers (ticks), never floats. My approach: get the matching rules right first, check them against a slow
+reference, then measure and speed up one thing.
 
 ## Run it
 
