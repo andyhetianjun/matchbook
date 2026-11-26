@@ -42,6 +42,20 @@ jobs:
       - name: Test
         run: ctest --preset sanitize
 
+  gateway:
+    name: gateway integration test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build the exchange process
+        run: cmake --preset release && cmake --build --preset release -j --target matchbook_market
+      - name: Install and test
+        working-directory: gateway
+        run: npm ci && npm test
+
   format:
     name: clang-format
     runs-on: ubuntu-latest

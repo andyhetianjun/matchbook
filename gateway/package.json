@@ -1,0 +1,14 @@
+{
+  "name": "matchbook-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WebSocket front door for the matchbook_market process",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "ws": "8.18.0" },
+  "license": "MIT"
+}
