@@ -19,13 +19,18 @@ if(MATCHBOOK_SANITIZE)
   target_link_options(matchbook_options INTERFACE -fsanitize=address,undefined)
 endif()
 
-add_library(matchbook src/order_book.cpp src/csv_replay.cpp)
+add_library(matchbook
+  src/order_book.cpp src/csv_replay.cpp
+  src/feed.cpp src/ledger.cpp src/exchange.cpp src/traffic.cpp src/wire.cpp)
 target_include_directories(matchbook PUBLIC include)
 target_link_libraries(matchbook PUBLIC matchbook_options)
 
 add_executable(matchbook_cli cli/main.cpp)
 target_link_libraries(matchbook_cli PRIVATE matchbook)
 set_target_properties(matchbook_cli PROPERTIES OUTPUT_NAME matchbook)
+
+add_executable(matchbook_market cli/market_main.cpp)
+target_link_libraries(matchbook_market PRIVATE matchbook)
 
 if(MATCHBOOK_BUILD_BENCH)
   add_executable(matchbook_bench bench/replay_bench.cpp)
@@ -44,7 +49,10 @@ if(MATCHBOOK_BUILD_TESTS)
   add_executable(matchbook_tests
     tests/order_book_test.cpp
     tests/random_test.cpp
-    tests/csv_test.cpp)
+    tests/csv_test.cpp
+    tests/exchange_test.cpp
+    tests/market_random_test.cpp
+    tests/wire_test.cpp)
   target_include_directories(matchbook_tests PRIVATE tests)
   target_link_libraries(matchbook_tests PRIVATE matchbook GTest::gtest_main)
   # Treat GoogleTest headers as system headers so -Werror only applies to our code.
