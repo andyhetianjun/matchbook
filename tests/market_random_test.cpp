@@ -32,8 +32,12 @@ void expect_mirror_matches(const Exchange& ex, SymbolId s, const BookMirror& m) 
         const auto& a = snap.asks;
         EXPECT_EQ(top->bid_qty, b.empty() ? 0 : b[0].qty);
         EXPECT_EQ(top->ask_qty, a.empty() ? 0 : a[0].qty);
-        if (!b.empty()) EXPECT_EQ(top->bid_price, b[0].price);
-        if (!a.empty()) EXPECT_EQ(top->ask_price, a[0].price);
+        if (!b.empty()) {
+            EXPECT_EQ(top->bid_price, b[0].price);
+        }
+        if (!a.empty()) {
+            EXPECT_EQ(top->ask_price, a[0].price);
+        }
     }
 }
 
@@ -67,7 +71,9 @@ void run(const Params& p) {
         EXPECT_EQ(m.seq, last_seq[m.symbol] + 1) << "gap in the feed";
         last_seq[m.symbol] = m.seq;
         EXPECT_EQ(from_start[m.symbol].apply(m), BookMirror::Apply::Applied);
-        if (joined[m.symbol]) EXPECT_EQ(late[m.symbol].apply(m), BookMirror::Apply::Applied);
+        if (joined[m.symbol]) {
+            EXPECT_EQ(late[m.symbol].apply(m), BookMirror::Apply::Applied);
+        }
         if (const auto* t = std::get_if<TradePrint>(&m.body)) {
             ++prints;
             const Account taker = placed_by.at(t->taker), maker = placed_by.at(t->maker);
@@ -116,7 +122,9 @@ void run(const Params& p) {
             const bool right = pick(2);
             const Account who = right ? placed_by[id] : (placed_by[id] + 1) % p.accounts;
             const bool ok = ex.cancel(who, id);
-            if (!right && p.accounts > 1) EXPECT_FALSE(ok);
+            if (!right && p.accounts > 1) {
+                EXPECT_FALSE(ok);
+            }
         } else {
             const OrderId id = ids[pick(ids.size())];
             ex.modify(
