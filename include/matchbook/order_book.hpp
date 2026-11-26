@@ -17,7 +17,9 @@ namespace matchbook {
 // Not thread safe: one book is meant to be driven from one thread.
 class OrderBook {
 public:
-    OrderBook() = default;
+    // `reserve_orders` is a hint for how many orders will rest at once, so the
+    // book can allocate up front instead of growing as it goes.
+    explicit OrderBook(std::size_t reserve_orders = 0) { index_.reserve(reserve_orders); }
 
     // Match against the book, then (for GTC limit orders) rest what is left.
     // Trades are appended to `trades` in the order they happen.
