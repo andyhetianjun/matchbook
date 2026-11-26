@@ -17,7 +17,7 @@ public:
     struct Config {
         std::uint64_t seed = 1;
         Account first_account = 0;
-        Account accounts = 8;  // orders come from first_account .. first_account + accounts - 1
+        Account accounts = 8;   // orders come from first_account .. first_account + accounts - 1
         Price start_mid = 100;  // each symbol starts around this price (in ticks)
     };
 
