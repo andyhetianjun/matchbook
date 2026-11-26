@@ -43,6 +43,9 @@ public:
     // Up to `levels` price levels from the best price outward.
     std::vector<DepthLevel> depth(Side side, std::size_t levels) const;
 
+    // The total resting at one price (qty 0 if nothing rests there). One tree lookup.
+    DepthLevel level_at(Side side, Price price) const;
+
     std::optional<RestingOrder> find(OrderId id) const;
     std::size_t order_count() const { return index_.size(); }
 

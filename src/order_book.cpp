@@ -221,6 +221,15 @@ std::vector<DepthLevel> OrderBook::depth(Side side, std::size_t levels) const {
     return side == Side::Buy ? snapshot(bids_, levels) : snapshot(asks_, levels);
 }
 
+DepthLevel OrderBook::level_at(Side side, Price price) const {
+    auto look = [&](const auto& book) {
+        auto it = book.find(price);
+        if (it == book.end()) return DepthLevel{price, 0, 0};
+        return DepthLevel{price, it->second.total, it->second.count};
+    };
+    return side == Side::Buy ? look(bids_) : look(asks_);
+}
+
 std::optional<RestingOrder> OrderBook::find(OrderId id) const {
     auto it = index_.find(id);
     if (it == index_.end()) return std::nullopt;
