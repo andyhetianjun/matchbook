@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>matchbook demo</title>
+<link rel="icon" href="data:,">
 <style>
   :root {
     --bg: #f6f5f1; --card: #ffffff; --ink: #1c1d1f; --muted: #6b6f76; --line: #e3e1da;
@@ -35,7 +36,8 @@
   .ladder .row:hover { outline: 1px solid var(--line); }
   .ladder .bar { position: absolute; top: 0; bottom: 0; right: 0; opacity: .9; z-index: 0; }
   .ladder .row span { position: relative; z-index: 1; }
-  .ladder .row span:nth-child(2), .ladder .row span:nth-child(3) { text-align: right; }
+  .ladder .row span { text-align: right; }
+  .ladder .row span:first-of-type { text-align: left; }
   .ladder .ask .bar { background: var(--sell-bg); } .ladder .ask span:first-child { color: var(--sell); }
   .ladder .bid .bar { background: var(--buy-bg); } .ladder .bid span:first-child { color: var(--buy); }
   .ladder .head { color: var(--muted); font-size: 12px; cursor: default; }
@@ -54,7 +56,7 @@
   .mine div { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; font-size: 13px; }
   .empty { color: var(--muted); font-size: 13px; }
   .kv { display: flex; justify-content: space-between; font-size: 13px; padding: 1px 0; }
-  .tape div { display: grid; grid-template-columns: 52px 1fr 1fr; font-size: 13px; padding: 1px 0; }
+  .tape div { display: grid; grid-template-columns: 84px 52px 1fr; font-size: 13px; padding: 1px 0; }
   .tape .buy .p { color: var(--buy); } .tape .sell .p { color: var(--sell); }
   .tape .seq { color: var(--muted); }
   .feed { font-size: 11px; color: var(--muted); max-height: 200px; overflow: hidden; word-break: break-all; }

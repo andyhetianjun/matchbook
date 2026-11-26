@@ -2,6 +2,10 @@
 
 [![ci](https://github.com/andyhetianjun/matchbook/actions/workflows/ci.yml/badge.svg)](https://github.com/andyhetianjun/matchbook/actions/workflows/ci.yml)
 
+**Try it in your browser: https://andyhetianjun.github.io/matchbook/** (the engine compiled to WebAssembly; no server)
+
+![The browser demo](docs/img/demo.png)
+
 I built a matching engine, the part of an exchange that pairs buy orders with sell orders, because I'm
 taking CS 246 (C++ and object-oriented design) this term and wanted to see how far careful data structure
 choices go on a problem where speed matters. It is written in C++20 and comes with tests, sanitizer builds
@@ -20,6 +24,15 @@ It supports limit and market orders (a market order takes whatever price is avai
 partial fills, IOC and FOK, trade events, and best bid/ask and depth snapshots. Prices and quantities are
 integers (ticks), never floats. My approach: get the matching rules right first, check them against a slow
 reference, then measure and speed up one thing.
+
+## Features
+
+- [Many products, a market data feed, and a settlement ledger](docs/multi-instrument-market.md): one order book per
+  product, a numbered feed of trades and price level changes that a late joiner can rebuild the book from, and a ledger
+  that records who owes what and checks that cash and quantity balance.
+- [WebSocket gateway](docs/gateway.md): send orders and receive the feed over a WebSocket, with an integration test.
+- [Browser demo](docs/browser-demo.md): the whole engine compiled to WebAssembly, with a page to place orders, watch
+  the book and run seeded random traffic.
 
 ## Run it
 
@@ -126,7 +139,9 @@ Design choices, briefly:
 
 ## Testing
 
-`ctest --preset release` runs 51 tests, all passing on my machine (also with the sanitizer preset).
+`ctest --preset release` runs 78 tests, all passing on my machine (also with the sanitizer preset). 51 cover the
+single book, listed below; the other 27 cover the exchange, feed, ledger and text protocol and are described in
+[docs/multi-instrument-market.md](docs/multi-instrument-market.md). The gateway has its own test, run with `npm test`.
 
 - Matching edge cases: price and time priority, partial fills on both sides, sweeping several levels,
   trading at the maker's price, market orders on an empty book, IOC and FOK (exactly enough, not enough,
@@ -206,8 +221,18 @@ include/matchbook/order_book.hpp   the book
 src/order_book.cpp
 include/matchbook/csv_replay.hpp   CSV parsing and replay (used by the CLI)
 src/csv_replay.cpp
+include/matchbook/exchange.hpp     many books, ownership, feed and ledger together
+include/matchbook/feed.hpp         feed messages, snapshots, and a client-side book mirror
+include/matchbook/ledger.hpp       who owes what, and the balance check
+include/matchbook/traffic.hpp      seeded random order stream
+include/matchbook/wire.hpp         text requests in, JSON lines out
 cli/main.cpp                       command line tool
+cli/market_main.cpp                the exchange as a process (the gateway runs this)
+gateway/                           WebSocket gateway (Node) and its integration test
+wasm/api.cpp, web/index.html       WebAssembly entry points and the demo page
+scripts/build_wasm.sh              builds the demo into site/
 bench/replay_bench.cpp             seeded stream + throughput/latency
+bench/market_bench.cpp             the same for the whole exchange
 tests/                             unit tests, reference book, randomized test
 scripts/compare_bench.sh           before/after benchmark
 data/example.csv
