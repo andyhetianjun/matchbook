@@ -1,0 +1,19 @@
+action,id,side,type,tif,price,qty
+# Build a small book
+NEW,1,SELL,LIMIT,GTC,102,5
+NEW,2,SELL,LIMIT,GTC,101,3
+NEW,3,SELL,LIMIT,GTC,101,4
+NEW,4,BUY,LIMIT,GTC,99,10
+NEW,5,BUY,LIMIT,GTC,98,6
+# A buy that crosses: takes order 2 first (older), then 3, at the maker's price
+NEW,6,BUY,LIMIT,GTC,101,5
+# Cancel one order from the middle of a queue, then modify another
+CANCEL,5
+MODIFY,4,,,,100,10
+# IOC: fills what it can at 102 or better and drops the rest
+NEW,7,BUY,LIMIT,IOC,102,9
+# FOK that cannot be filled completely does nothing
+NEW,8,SELL,LIMIT,FOK,99,50
+# Market sell eats the bids
+NEW,9,SELL,MARKET,IOC,,4
+CANCEL,42
