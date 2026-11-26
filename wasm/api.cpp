@@ -21,8 +21,8 @@ using namespace matchbook;
 
 namespace {
 
-constexpr Account kYou = 0;      // the person at the keyboard
-constexpr Account kBots = 8;     // accounts 1..8 send the random traffic
+constexpr Account kYou = 0;   // the person at the keyboard
+constexpr Account kBots = 8;  // accounts 1..8 send the random traffic
 constexpr std::size_t kLedgerEntries = 20000;
 constexpr std::size_t kRecentMessages = 600;
 const char* const kSymbols[] = {"WHEAT", "COPPER", "SALMON"};
@@ -131,10 +131,11 @@ EMSCRIPTEN_KEEPALIVE const char* mb_state(unsigned symbol_index) {
         first = false;
     }
     const Ledger& l = ex.ledger();
-    o << "],\"ledger\":{\"trades\":" << l.trade_count() << ",\"balanced\":"
-      << (l.check().empty() ? "true" : "false") << ",\"traded_cash\":" << l.traded_cash()
-      << ",\"your_cash\":" << l.cash(kYou) << ",\"your_position\":" << l.position(kYou, sym)
-      << ",\"entries\":" << l.entries().size() << "}}";
+    o << "],\"ledger\":{\"trades\":" << l.trade_count()
+      << ",\"balanced\":" << (l.check().empty() ? "true" : "false")
+      << ",\"traded_cash\":" << l.traded_cash() << ",\"your_cash\":" << l.cash(kYou)
+      << ",\"your_position\":" << l.position(kYou, sym) << ",\"entries\":" << l.entries().size()
+      << "}}";
     m.result = o.str();
     return m.result.c_str();
 }
